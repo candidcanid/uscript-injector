@@ -16,8 +16,6 @@ const user32 = win.user32;
 const psapi = std.os.win.psapi;
 
 const Ue3 = @import("Ue3.zig");
-const XComEW = @import("XComEW.zig");
-const XCom2WotC = @import("XCom2WotC.zig");
 
 const Ue3Targets = @import("Ue3Targets");
 const Flavour = Ue3Targets.Flavour;
