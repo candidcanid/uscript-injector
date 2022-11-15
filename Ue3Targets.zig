@@ -7,8 +7,10 @@ const mem = std.mem;
 
 const CrossTarget = std.zig.CrossTarget;
 
+const Ue3Paths = @import("Ue3Paths.zig");
+
 // caller responsible for freeing u8 slice
-pub fn getCompiledDllDir(allocator: mem.Allocator) ![]u8 {
+pub fn getAppDataPath(allocator: mem.Allocator) ![]u8 {
     return try fs.getAppDataDir(allocator, "UScriptDllInjector");
 }       
 
@@ -18,7 +20,7 @@ pub fn uscriptFriendlyPath(allocator: mem.Allocator, fpath: []const u8) ![]u8 {
     var fbs = std.io.fixedBufferStream(out);
 
     for(fpath) |c| switch(c) {
-        '/' => try fbs.writer().writeAll("\\"),
+        '\\' => try fbs.writer().writeAll("\\\\"),
         else => try fbs.writer().writeByte(c),
     };
 
@@ -126,12 +128,13 @@ pub const Flavour = enum {
     };
 
     pub const BuildContext = struct {
-        udk_arch: []const u8,
-        udk_bin: []const u8,
-        udk_install: []const u8,
-        game_name: []const u8,
+        sdk_exe: []const u8,
+        sdk_src_dir: []const u8,
+        sdk_script_dir: []const u8,
         
         src_dir: []const u8,
+        srcorig_dir: []const u8,
+
         mod_dir: []const u8,
         out_dir: []const u8,
 
@@ -139,109 +142,118 @@ pub const Flavour = enum {
         custom_ini: CustomINI,
     };
 
-    pub fn buildContext(flav: Flavour) BuildContext {
-        return switch(flav) {
-            .udk32 => BuildContext{
-                .udk_arch = "Win32",
-                .udk_bin = "UDK.exe",
-                .udk_install = "C:\\Modding\\UDKInstall",
-                .game_name = "UDKGame",
-                .src_dir = "win\\CustomUDKSources\\UDK_Sources\\UDKInstall-2011-09",
-                .mod_dir = "win\\CustomUDKSources\\UScriptSource",
-                .out_dir = "win\\CustomUDKSources\\UScriptSource\\Output",
-                .mods = &.{
-                    "UScriptDllInjector",
-                    "SimpleCustomGame",
-                },
-                .custom_ini = .{
-                    .src_ini = "win\\CustomUDKSources\\UDK_Sources\\UDKInstall-2011-09\\DefaultEngine_Original.ini", 
-                    .dst_ini = "C:\\Modding\\UDKInstall\\UDKGame\\Config\\DefaultEngine.ini", 
-                    .items = &.{
-                        .{.name = "[UnrealEd.EditorEngine]", .operations = .{
-                            .append = &.{
-                                "+EditPackages=UScriptDllInjector",
-                                "+EditPackages=SimpleCustomGame"
-                            }   
+    pub fn buildContext(comptime flav: Flavour) BuildContext {
+        comptime {
+            const paths = Ue3Paths.forFlavour(flav);
+
+            return switch(flav) {
+                .udk32 => BuildContext{
+                    .sdk_exe = paths.sdk_exe,
+                    .sdk_src_dir = paths.sdk_root_dir ++ "\\Development\\Src",
+                    .sdk_script_dir = paths.sdk_engine_dir ++ "\\Script",
+
+                    .src_dir = "win\\CustomUDKSources\\UDK_Sources\\UDKInstall-2011-09",
+                    .srcorig_dir = "win\\CustomUDKSources\\UDK_Sources\\UDKInstall-2011-09\\SrcOrig",
+                    .mod_dir = "win\\CustomUDKSources\\UScriptSource",
+                    .out_dir = "win\\CustomUDKSources\\UScriptSource\\Output",
+                    .mods = &.{
+                        "UScriptDllInjector",
+                        "SimpleCustomGame",
+                    },
+                    .custom_ini = .{
+                        .src_ini = "win\\CustomUDKSources\\UDK_Sources\\UDKInstall-2011-09\\DefaultEngine_Original.ini", 
+                        .dst_ini = paths.sdk_engine_dir ++ "\\Config\\DefaultEngine.ini", 
+                        .items = &.{
+                            .{.name = "[UnrealEd.EditorEngine]", .operations = .{
+                                .append = &.{
+                                    "+EditPackages=UScriptDllInjector",
+                                    "+EditPackages=SimpleCustomGame"
+                                }   
+                            }
                         }
-                    }
-                }}
-            },
-            .udk64 => BuildContext{
-                .udk_arch = "Win64",
-                .udk_bin = "UDK.exe",
-                .udk_install = "C:\\Modding\\UDKInstall",
-                .game_name = "UDKGame",
-                .src_dir = "win\\CustomUDKSources\\UDK_Sources\\UDKInstall-2011-09",
-                .mod_dir = "win\\CustomUDKSources\\UScriptSource",
-                .out_dir = "win\\CustomUDKSources\\UScriptSource\\Output",
-                .mods = &.{
-                    "UScriptDllInjector",
-                    "SimpleCustomGame",
+                    }}
                 },
-                .custom_ini = .{
-                    .src_ini = "win\\CustomUDKSources\\UDK_Sources\\UDKInstall-2011-09\\DefaultEngine_Original.ini", 
-                    .dst_ini = "C:\\Modding\\UDKInstall\\UDKGame\\Config\\DefaultEngine.ini", 
-                    .items = &.{
-                        .{.name = "[UnrealEd.EditorEngine]", .operations = .{
-                            .append = &.{
-                                "+EditPackages=UScriptDllInjector",
-                                "+EditPackages=SimpleCustomGame"
-                            }   
+                .udk64 => BuildContext{
+                    .sdk_exe = paths.sdk_exe,
+                    .sdk_src_dir = paths.sdk_root_dir ++ "\\Development\\Src",
+                    .sdk_script_dir = paths.sdk_engine_dir ++ "\\Script",
+
+                    .src_dir = "win\\CustomUDKSources\\UDK_Sources\\UDKInstall-2011-09",
+                    .srcorig_dir = "win\\CustomUDKSources\\UDK_Sources\\UDKInstall-2011-09\\SrcOrig",
+
+                    .mod_dir = "win\\CustomUDKSources\\UScriptSource",
+                    .out_dir = "win\\CustomUDKSources\\UScriptSource\\Output",
+                    .mods = &.{
+                        "UScriptDllInjector",
+                        "SimpleCustomGame",
+                    },
+                    .custom_ini = .{
+                        .src_ini = "win\\CustomUDKSources\\UDK_Sources\\UDKInstall-2011-09\\DefaultEngine_Original.ini", 
+                        .dst_ini = paths.sdk_engine_dir ++ "\\Config\\DefaultEngine.ini", 
+                        .items = &.{
+                            .{.name = "[UnrealEd.EditorEngine]", .operations = .{
+                                .append = &.{
+                                    "+EditPackages=UScriptDllInjector",
+                                    "+EditPackages=SimpleCustomGame"
+                                }   
+                            }
                         }
-                    }
-                }}
-            },
-            .XCom_EW => BuildContext{
-                .udk_arch = "Win32",
-                .udk_bin = "UDK.exe",
-                .udk_install = "C:\\Modding\\UDKInstall",
-                .game_name = "UDKGame",
-                .src_dir = "win\\CustomUDKSources\\UDK_Sources\\UDKInstall-XComEW-2011-09",
-                .mod_dir = "win\\CustomUDKSources\\UScriptSource",
-                .out_dir = "win\\CustomUDKSources\\UScriptSource\\Output",
-                .mods = &.{
-                    "UScriptDllInjector",
-                    "XComDevHooks",
+                    }}
                 },
-                .custom_ini = .{
-                    .src_ini = "win\\CustomUDKSources\\UDK_Sources\\UDKInstall-2011-09\\DefaultEngine_Original.ini", 
-                    .dst_ini = "C:\\Modding\\UDKInstall\\UDKGame\\Config\\DefaultEngine.ini", 
-                    .items = &.{
-                        .{.name = "[UnrealEd.EditorEngine]", .operations = .{
-                            .append = &.{
-                                "+EditPackages=UScriptDllInjector",
-                                "+EditPackages=XComDevHooks"
-                            }   
+                .XCom_EW => BuildContext{
+                    .sdk_exe = paths.sdk_exe,
+                    .sdk_src_dir = paths.sdk_root_dir ++ "\\Development\\Src",
+                    .sdk_script_dir = paths.sdk_engine_dir ++ "\\Script",
+
+                    .src_dir = "win\\CustomUDKSources\\UDK_Sources\\UDKInstall-XComEW-2011-09",
+                    .srcorig_dir = "win\\CustomUDKSources\\UDK_Sources\\UDKInstall-XComEW-2011-09\\SrcOrig",
+                    .mod_dir = "win\\CustomUDKSources\\UScriptSource",
+                    .out_dir = "win\\CustomUDKSources\\UScriptSource\\Output",
+                    .mods = &.{
+                        "UScriptDllInjector",
+                        "XComDevHooks",
+                    },
+                    .custom_ini = .{
+                        .src_ini = "win\\CustomUDKSources\\UDK_Sources\\UDKInstall-2011-09\\DefaultEngine_Original.ini", 
+                        .dst_ini = paths.sdk_engine_dir ++ "Config\\DefaultEngine.ini", 
+                        .items = &.{
+                            .{.name = "[UnrealEd.EditorEngine]", .operations = .{
+                                .append = &.{
+                                    "+EditPackages=UScriptDllInjector",
+                                    "+EditPackages=XComDevHooks"
+                                }   
+                            }
                         }
-                    }
-                }}
-            },
-            .XCom2_WotC => BuildContext{
-                .udk_arch = "Win64",
-                .udk_bin = "XComGame.com",
-                .udk_install = "C:\\Steam\\steamapps\\common\\XCOM 2 War of the Chosen SDK",
-                .game_name = "XComGame",
-                .src_dir = "win\\CustomUDKSources\\UDK_Sources\\XCom2-WOTC-SDK",
-                .mod_dir = "win\\CustomUDKSources\\UScriptSource",
-                .out_dir = "win\\CustomUDKSources\\UScriptSource\\Output",
-                .mods = &.{
-                    "UScriptDllInjector",
-                    "XComDevHooks",
+                    }}
                 },
-                .custom_ini = .{
-                    .src_ini = "win\\CustomUDKSources\\UDK_Sources\\XCom2-WOTC-SDK\\XComEngine_Original.ini", 
-                    .dst_ini = "C:\\Steam\\steamapps\\common\\XCOM 2 War of the Chosen SDK\\XComGame\\Config\\XComEngine.ini", 
-                    .items = &.{
-                        .{.name = "[UnrealEd.EditorEngine]", .operations = .{
-                            .append = &.{
-                                "EditPackages=UScriptDllInjector",
-                                "EditPackages=XComDevHooks"
-                            }   
+                .XCom2_WotC => BuildContext{
+                    .sdk_exe = paths.sdk_exe,
+                    .sdk_src_dir = paths.sdk_root_dir ++ "\\Development\\Src",
+                    .sdk_script_dir = paths.sdk_engine_dir ++ "\\Script",
+
+                    .src_dir = "win\\CustomUDKSources\\UDK_Sources\\XCom2-WOTC-SDK",
+                    .srcorig_dir = "win\\CustomUDKSources\\UDK_Sources\\XCom2-WOTC-SDK\\SrcOrig",
+                    .mod_dir = "win\\CustomUDKSources\\UScriptSource",
+                    .out_dir = "win\\CustomUDKSources\\UScriptSource\\Output",
+                    .mods = &.{
+                        "UScriptDllInjector",
+                        "XComDevHooks",
+                    },
+                    .custom_ini = .{
+                        .src_ini = "win\\CustomUDKSources\\UDK_Sources\\XCom2-WOTC-SDK\\XComEngine_Original.ini", 
+                        .dst_ini = paths.sdk_engine_dir ++ "Config\\XComEngine.ini", 
+                        .items = &.{
+                            .{.name = "[UnrealEd.EditorEngine]", .operations = .{
+                                .append = &.{
+                                    "EditPackages=UScriptDllInjector",
+                                    "EditPackages=XComDevHooks"
+                                }   
+                            }
                         }
-                    }
-                }}
-            },
-        };
+                    }}
+                },
+            };
+        }
     }
 
     pub const RunContext = struct {
@@ -253,93 +265,96 @@ pub const Flavour = enum {
         inject_dll: ?[]const u8 = null,
     };
 
-    pub fn runContext(flav: Flavour) RunContext {
-        return switch(flav) {
-            .udk32 => RunContext{
-                .exe = "C:\\Modding\\UDKInstall\\Binaries\\Win32\\UDK.exe",
-                .arguments = "server Entry.udk?game=SimpleCustomGame.SimpleFramework?listen=true?bIsLanMatch=true -unattended",
-                .src_scriptdir = "win\\CustomUDKSources\\UScriptSource\\Output", 
-                .dst_scriptdir = "C:\\Modding\\UDKInstall\\UDKGame\\Script", 
-                .custom_ini = .{
-                    .src_ini = "win\\CustomUDKSources\\UDK_Sources\\UDKInstall-2011-09\\DefaultEngine_Original.ini", 
-                    .dst_ini = "C:\\Modding\\UDKInstall\\UDKGame\\Config\\DefaultEngine.ini", 
-                    .items = &.{
-                        .{.name = "[Engine.ScriptPackages]", .operations = .{
-                            .append = &.{
-                                "+NonNativePackages=UScriptDllInjector",
-                                "+NonNativePackages=SimpleCustomGame"
-                            }   
-                        }}
-                    }
-                },
-                .inject_dll = "zig-out\\lib\\medic.dll",
-            },
-            .udk64 => RunContext{
-                .exe = "C:\\Modding\\UDKInstall\\Binaries\\Win64\\UDK.exe",
-                .arguments = "server Entry.udk?game=SimpleCustomGame.SimpleFramework?listen=true?bIsLanMatch=true -unattended",
-                .src_scriptdir = "win\\CustomUDKSources\\UScriptSource\\Output", 
-                .dst_scriptdir = "C:\\Modding\\UDKInstall\\UDKGame\\Script", 
-                .custom_ini = .{
-                    .src_ini = "win\\CustomUDKSources\\UDK_Sources\\UDKInstall-2011-09\\DefaultEngine_Original.ini", 
-                    .dst_ini = "C:\\Modding\\UDKInstall\\UDKGame\\Config\\DefaultEngine.ini", 
-                    .items = &.{
-                        .{.name = "[Engine.ScriptPackages]", .operations = .{
-                            .append = &.{
-                                "+NonNativePackages=UScriptDllInjector",
-                                "+NonNativePackages=SimpleCustomGame"
-                            }   
-                        }}
-                    }
-                },
-                .inject_dll = "zig-out\\lib\\medic.dll",
-            },
-            .XCom_EW => RunContext{
-                .exe = "C:\\Modding\\XCOM Enemy Unknown\\XEW\\Binaries\\Win32\\XComEW.exe",
-                .arguments = "-FROMLAUNCHER",
-                .src_scriptdir = "win\\CustomUDKSources\\UDK_Sources\\UScriptSource\\Output", 
-                .dst_scriptdir = "C:\\Modding\\UDKInstall\\UDKGame\\Script", 
-                .custom_ini = .{
-                    .src_ini = "win\\CustomUDKSources\\UDK_Sources\\UDKInstall-XComEW-2011-09\\XComEW_DefaultEngine_Original.ini", 
-                    .dst_ini = "C:\\Modding\\XCOM Enemy Unknown\\XEW\\XComGame\\Config\\DefaultEngine.ini", 
-                    .items = &.{
-                        .{.name = "[Engine.ScriptPackages]", .operations = .{
-                            .append = &.{
-                                "+NonNativePackages=UScriptDllInjector",
-                                "+NonNativePackages=XComDevHooks"
-                            },
-                            .override = &.{
-                                CustomINI.Override{ .original_entry = "GameEngine=XComGame.XComEngine", .new_entry = "GameEngine=XComDevHooks.DevHookXComEngine" },
-                            }, 
-                        }}
-                    }
-                },
-                .inject_dll = "zig-out\\lib\\medic.dll",
-            },
-            .XCom2_WotC => RunContext{
-                .exe = "C:\\Steam\\steamapps\\common\\XCOM 2\\XCom2-WarOfTheChosen\\Binaries\\Win64\\XCom2.exe",
-                .arguments = "-FROMLAUNCHER -NOSTARTUPMOVIES -WINDOWED -unattended",
-                .src_scriptdir = "win\\CustomUDKSources\\UScriptSource\\Output", 
-                .dst_scriptdir = "C:\\Modding\\UDKInstall\\UDKGame\\Script", 
-                .custom_ini = .{
-                    .src_ini = "win\\CustomUDKSources\\UDK_Sources\\XCom2-WOTC-SDK\\XComEngine_Original.ini", 
-                    .dst_ini = "C:\\Steam\\steamapps\\common\\XCOM 2\\XCom2-WarOfTheChosen\\XComGame\\Config\\XComEngine.ini", 
-                    .items = &.{
-                        .{.name = "[Engine.ScriptPackages]", .operations = .{
-                            .append = &.{
-                                "+NonNativePackages=UScriptDllInjector",
-                                "+NonNativePackages=XComDevHooks"
-                            },   
-                            .override = &.{
-                                CustomINI.Override{ .original_entry = "GameEngine=XComGame.XComEngine", .new_entry = "GameEngine=XComDevHooks.DevHookXComEngine" },
-                            },
-                        }}
-                    }
-                },
-                .inject_dll = "zig-out\\lib\\medic.dll",
-            },
-        };
-    }
+    pub fn runContext(comptime flav: Flavour) RunContext {
+        comptime {
+            const paths = Ue3Paths.forFlavour(flav);
 
+            return switch(flav) {
+                .udk32 => RunContext{
+                    .exe = paths.game_exe,
+                    .arguments = "server Entry.udk?game=SimpleCustomGame.SimpleFramework?listen=true?bIsLanMatch=true -unattended",
+                    .src_scriptdir = "win\\CustomUDKSources\\UScriptSource\\Output", 
+                    .dst_scriptdir = paths.sdk_engine_dir ++ "\\Script", 
+                    .custom_ini = .{
+                        .src_ini = "win\\CustomUDKSources\\UDK_Sources\\UDKInstall-2011-09\\DefaultEngine_Original.ini", 
+                        .dst_ini = paths.sdk_engine_dir ++ "\\Config\\DefaultEngine.ini", 
+                        .items = &.{
+                            .{.name = "[Engine.ScriptPackages]", .operations = .{
+                                .append = &.{
+                                    "+NonNativePackages=UScriptDllInjector",
+                                    "+NonNativePackages=SimpleCustomGame"
+                                }   
+                            }}
+                        }
+                    },
+                    .inject_dll = "zig-out\\lib\\medic.dll",
+                },
+                .udk64 => RunContext{
+                    .exe = paths.game_exe,
+                    .arguments = "server Entry.udk?game=SimpleCustomGame.SimpleFramework?listen=true?bIsLanMatch=true -unattended",
+                    .src_scriptdir = "win\\CustomUDKSources\\UScriptSource\\Output", 
+                    .dst_scriptdir = paths.sdk_engine_dir ++ "\\Script", 
+                    .custom_ini = .{
+                        .src_ini = "win\\CustomUDKSources\\UDK_Sources\\UDKInstall-2011-09\\DefaultEngine_Original.ini", 
+                        .dst_ini = paths.sdk_engine_dir ++ "\\Config\\DefaultEngine.ini", 
+                        .items = &.{
+                            .{.name = "[Engine.ScriptPackages]", .operations = .{
+                                .append = &.{
+                                    "+NonNativePackages=UScriptDllInjector",
+                                    "+NonNativePackages=SimpleCustomGame"
+                                }   
+                            }}
+                        }
+                    },
+                    .inject_dll = "zig-out\\lib\\medic.dll",
+                },
+                .XCom_EW => RunContext{
+                    .exe = paths.game_exe,
+                    .arguments = "-FROMLAUNCHER",
+                    .src_scriptdir = "win\\CustomUDKSources\\UDK_Sources\\UScriptSource\\Output", 
+                    .dst_scriptdir = paths.game_engine_dir ++ "\\CookedPCConsole", 
+                    .custom_ini = .{
+                        .src_ini = "win\\CustomUDKSources\\UDK_Sources\\UDKInstall-XComEW-2011-09\\XComEW_DefaultEngine_Original.ini", 
+                        .dst_ini = paths.game_engine_dir ++ "\\Config\\DefaultEngine.ini", 
+                        .items = &.{
+                            .{.name = "[Engine.ScriptPackages]", .operations = .{
+                                .append = &.{
+                                    "+NonNativePackages=UScriptDllInjector",
+                                    "+NonNativePackages=XComDevHooks"
+                                },
+                                .override = &.{
+                                    CustomINI.Override{ .original_entry = "GameEngine=XComGame.XComEngine", .new_entry = "GameEngine=XComDevHooks.DevHookXComEngine" },
+                                }, 
+                            }}
+                        }
+                    },
+                    .inject_dll = "zig-out\\lib\\medic.dll",
+                },
+                .XCom2_WotC => RunContext{
+                    .exe = paths.game_exe,
+                    .arguments = "-FROMLAUNCHER -NOSTARTUPMOVIES -WINDOWED -unattended",
+                    .src_scriptdir = "win\\CustomUDKSources\\UScriptSource\\Output", 
+                    .dst_scriptdir = paths.game_engine_dir ++ "\\CookedPCConsole", 
+                    .custom_ini = .{
+                        .src_ini = "win\\CustomUDKSources\\UDK_Sources\\XCom2-WOTC-SDK\\XComEngine_Original.ini", 
+                        .dst_ini = paths.game_engine_dir ++ "\\Config\\XComEngine.ini",
+                        .items = &.{
+                            .{.name = "[Engine.ScriptPackages]", .operations = .{
+                                .append = &.{
+                                    "+NonNativePackages=UScriptDllInjector",
+                                    "+NonNativePackages=XComDevHooks"
+                                },   
+                                .override = &.{
+                                    CustomINI.Override{ .original_entry = "GameEngine=XComGame.XComEngine", .new_entry = "GameEngine=XComDevHooks.DevHookXComEngine" },
+                                },
+                            }}
+                        }
+                    },
+                    .inject_dll = "zig-out\\lib\\medic.dll",
+                },
+            };
+        }
+    }
 }; 
 
 pub const ImageDetails = struct {

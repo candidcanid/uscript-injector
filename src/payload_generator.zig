@@ -13,6 +13,8 @@ const testing = std.testing;
 
 const ArrayList = std.ArrayList;
 
+const win_util = @import("win_util.zig");
+
 const Ue3Targets = @import("Ue3Targets");
 const Flavour = Ue3Targets.Flavour;
 const ue3_flavour = Flavour.fromBuildString(@import("build_details").ue3_flavour_tagstr);
@@ -61,13 +63,14 @@ pub fn main() anyerror!void {
     defer arena.deinit();
     var allocator = arena.allocator();
 
-    // var dll_path = try Ue3Targets.getCompiledDllDir(allocator);
-    // var medic_dll = try fs.path.join(allocator, &.{dll_path, "medic.dll"});
-    // var friendly_dllpath = try Ue3Targets.uscriptFriendlyPath(allocator, medic_dll);
+    const appdata_dir = try Ue3Targets.getAppDataPath(allocator);
+    const friendly_dllpath = try Ue3Targets.uscriptFriendlyPath(allocator, try fs.path.join(allocator, &.{appdata_dir, "testdll_payload.dll"}));
+    try win_util.robocopy(allocator, "zig-out\\lib", appdata_dir, .{.copy_kind = .mirror});
 
     inline for(.{
-        "UScriptSource/UScriptDLLInjector/Settings.uci",        
-        "UScriptSource/XComDevHooks/Settings.uci",        
+        "win\\CustomUDKSources\\UScriptSource\\UScriptDLLInjector\\Settings.uci",        
+        "win\\CustomUDKSources\\UScriptSource\\XComDevHooks\\Settings.uci",        
+        "win\\CustomUDKSources\\UScriptSource\\SimpleCustomGame\\Settings.uci",        
     }) |path| {
         try std.fs.cwd().writeFile(path, try fmt.allocPrint(allocator, 
     \\// i386 = 32bit, x86_64 = 64bit
@@ -78,7 +81,7 @@ pub fn main() anyerror!void {
         , .{@tagName(ue3_flavour.cpuArch()), @tagName(ue3_flavour)}));
     }
 
-    var file = try std.fs.cwd().createFile("UScriptSource/UScriptDLLInjector/Classes/RawPayloads.uc", .{
+    var file = try std.fs.cwd().createFile("win\\CustomUDKSources\\UScriptSource\\UScriptDLLInjector\\Classes\\RawPayloads.uc", .{
         .truncate = true,
     });
     defer file.close();
@@ -122,6 +125,8 @@ pub fn main() anyerror!void {
     inline for(comptime Flavour.constSlice()) |flav| {
         try std.fmt.format(writer, "`if(`isdefined(Flavour_{s}))\n", .{@tagName(flav)});
 
+        try std.fmt.format(writer, "var string InjectedDllPath;\n", .{});     
+
         for(baked_asm.constSlice()) |baked| {
             for(baked.snippet.supported) |s_flav| {
                 if(flav == s_flav) {
@@ -145,6 +150,9 @@ pub fn main() anyerror!void {
 
         _ = try writer.writeAll("\n");   
         _ = try writer.writeAll("defaultproperties\n{\n");   
+
+        try std.fmt.format(writer, "    InjectedDllPath=\"{s}\";\n", .{friendly_dllpath});     
+
         inline for(comptime Ue3Targets.ImageDetails.listing()) |item| {
             inline for(item.entries) |entry| {
                 if(comptime entry.tag == flav) {

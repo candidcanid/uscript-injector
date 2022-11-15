@@ -10,6 +10,8 @@ const heap = std.heap;
 
 const ChildProcess = std.ChildProcess;
 
+const win_util = @import("win_util.zig");
+
 const Ue3Targets = @import("Ue3Targets");
 const Flavour = Ue3Targets.Flavour;
 const ue3_flavour = Flavour.fromBuildString(@import("build_details").ue3_flavour_tagstr);
@@ -438,13 +440,6 @@ const UScriptBuilder = struct {
         self.arena.deinit();
     }
 
-    const RobocopyOptions = struct {
-        file_glob: ?[]const u8 = null,
-        copy_kind: enum {
-            mirror,
-            recursive,
-        } = .recursive,
-    };
 
     fn cleanDir(_: *Self, path: []const u8, comptime suffixes: []const []const u8) !void {
         var iter_dir = try fs.cwd().openIterableDir(path, .{});
@@ -461,27 +456,8 @@ const UScriptBuilder = struct {
         }
     }
 
-    fn robocopy(self: *Self, src_dir: []const u8, dst_dir: []const u8, comptime options: RobocopyOptions) !void {
-        var args = std.BoundedArray([]const u8, 20).init(0) catch unreachable;
-        args.appendSlice(&.{"robocopy", src_dir, dst_dir}) catch unreachable;
-        if(options.file_glob) |g| args.append(g) catch unreachable;
-        switch(options.copy_kind) {
-            .mirror => args.append("/mir") catch unreachable,
-            .recursive => args.append("/e") catch unreachable,
-        }
-
-        std.log.debug("robocopy: {s} -> {s}", .{src_dir, dst_dir});
-        var proc = ChildProcess.init(args.constSlice(), self.arena.allocator());
-
-        proc.stderr_behavior = .Ignore;
-        proc.stdin_behavior = .Ignore;
-        proc.stdout_behavior = .Ignore;
-
-        switch(try proc.spawnAndWait()) {
-            .Exited => |code| if(code == 8) 
-                return error.FailedRobocopy, // 'several files did not copy'
-            else => return error.FailedRobocopy,
-        }
+    fn robocopy(self: *Self, src_dir: []const u8, dst_dir: []const u8, comptime options: win_util.RobocopyOptions) !void {
+        return win_util.robocopy(self.arena.allocator(), src_dir, dst_dir, options);
     }
 
     fn joinPath(self: *Self, paths: []const []const u8) ![]u8 {
@@ -490,8 +466,6 @@ const UScriptBuilder = struct {
 };
 
 fn compileUScript(b: *UScriptBuilder, ctx: Flavour.BuildContext) !void {
-    try b.robocopy("zig-out", "C:\\Modding\\zig-out", .{.copy_kind = .mirror});
-
     inline for(.{ctx.src_dir, ctx.mod_dir, ctx.out_dir}) |d| {
         if(fs.path.isAbsolute(d)) {
             std.log.err("'{s}' must be relative to root build.zig, and not an absolute path", .{d});
@@ -506,35 +480,25 @@ fn compileUScript(b: *UScriptBuilder, ctx: Flavour.BuildContext) !void {
 
     std.log.info("clean out old build .u, .ini files", .{});
     try b.cleanDir(ctx.out_dir, &.{".ini", ".u",  ".txt"});
-    try b.cleanDir(try b.joinPath(&.{ctx.udk_install, ctx.game_name, "Script"}), &.{".ini", ".u",});
+    try b.cleanDir(ctx.sdk_script_dir, &.{".ini", ".u",});
 
-    std.log.info("sync SrcOrig to Development\\Src", .{});
-
-    try b.robocopy(
-        try b.joinPath(&.{ctx.src_dir, "SrcOrig"}),
-        try b.joinPath(&.{ctx.udk_install, "Development", "Src"}),
-        .{.copy_kind = .mirror}
-    );
+    std.log.info("mirror '{s}' to '{s}'", .{ctx.srcorig_dir, ctx.sdk_src_dir});
+    try b.robocopy(ctx.srcorig_dir, ctx.sdk_src_dir, .{.copy_kind = .mirror});
 
     std.log.info("compile core uscript packages", .{});
     {
-        var proc = ChildProcess.init(
-            &.{
-                try fs.path.join(b.arena.allocator(), &.{ctx.udk_install, "Binaries", ctx.udk_arch, ctx.udk_bin}), "MAKE", "-NOPAUSE", "-UNATTENDED",
-            }, 
-            b.arena.allocator(),
-        );
-
-        const term = try proc.spawnAndWait();
-        // TODO - do smthing with this
-        _ = term;
+        var proc = ChildProcess.init(&.{ctx.sdk_exe, "MAKE", "-NOPAUSE", "-UNATTENDED"}, b.arena.allocator());
+        switch(try proc.spawnAndWait()) {
+            .Exited => |code| if(code != 0) return error.FailedUScriptCompile,
+            else => return error.MysteryProcessSpawnError,
+        }
     }
     
     std.log.info("alter .ini and copy in mods", .{});
     for(ctx.mods) |mod| {
         try b.robocopy(
             try b.joinPath(&.{ctx.mod_dir, mod}),
-            try b.joinPath(&.{ctx.udk_install, "Development", "Src", mod}),
+            try b.joinPath(&.{ctx.sdk_src_dir, mod}),
         .{.copy_kind = .recursive});
     }
     
@@ -561,33 +525,21 @@ fn compileUScript(b: *UScriptBuilder, ctx: Flavour.BuildContext) !void {
     }
 
     {
-        var proc = ChildProcess.init(
-            &.{
-                try fs.path.join(b.arena.allocator(), &.{ctx.udk_install, "Binaries", ctx.udk_arch, ctx.udk_bin}), "MAKE", "-NOPAUSE", "-UNATTENDED",
-            }, 
-            b.arena.allocator(),
-        );
-
-        const term = try proc.spawnAndWait();
-        // TODO - do smthing with this
-        _ = term;
+        var proc = ChildProcess.init(&.{ctx.sdk_exe, "MAKE", "-NOPAUSE", "-UNATTENDED"}, b.arena.allocator());
+        switch(try proc.spawnAndWait()) {
+            .Exited => |code| if(code != 0) return error.FailedUScriptCompile,
+            else => return error.MysteryProcessSpawnError,
+        }
     }
 
     for(ctx.mods) |mod| {
-        const in_loc = try fs.path.join(b.arena.allocator(), &.{ctx.udk_install, ctx.game_name, "Script"});
         const out_loc = try fs.path.join(b.arena.allocator(), &.{ctx.out_dir});
         const mname = try fmt.allocPrint(b.arena.allocator(), "{s}.u", .{mod});
 
-        std.log.debug("copying {s}: {s} -> {s}", .{mname, in_loc, out_loc});
+        std.log.debug("copying {s}: {s} -> {s}", .{mname, ctx.sdk_script_dir, out_loc});
 
         {
-            var proc = ChildProcess.init(
-                &.{
-                    "robocopy", in_loc, out_loc, mname
-                }, 
-                b.arena.allocator(),
-            );
-
+            var proc = ChildProcess.init(&.{"robocopy", ctx.sdk_script_dir, out_loc, mname}, b.arena.allocator());
             const term = try proc.spawnAndWait();
             // TODO - do smthing with this
             _ = term;

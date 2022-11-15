@@ -26,6 +26,10 @@ static final function Panic(const string Msg) {
     ForceExit();
 }
 
+static final function string GetInjectedDllPath() {
+    return `PAYLOAD.InjectedDllPath;
+}
+
 static final function bool InjectDLL(const string DllPath) {
     local bool InjectionResult;
     local string DllPath_Normalised;

@@ -106,7 +106,7 @@ pub fn build(b: *std.build.Builder) !void {
     switch(native_os) {
         .windows => {
             const generate = payload_generator_exe.run();
-            generate.cwd = b.pathFromRoot("win/CustomUDKSources/");
+            generate.cwd = b.build_root;
             generate.step.dependOn(b.getInstallStep());
 
             const run_bundler = uscript_bundler_exe.run();
@@ -116,14 +116,14 @@ pub fn build(b: *std.build.Builder) !void {
             b.default_step = &run_bundler.step;        
         },
         .macos => {
-            const parallels_vmid = b.option([]const u8, "parallels_vmid", "wowow") orelse return error.MissingParallelsVMIdent;
-            const parallels_share_root = b.option([]const u8, "parallels_shareroot", "wowow") orelse return error.MissingParallelsShareRoot;
+            const parallels_vmid = b.option([]const u8, "parallels_vmid", "Parallels VM name for connection") orelse return error.MissingParallelsVMIdent;
+            const parallels_share_root = b.option([]const u8, "parallels_shareroot", "full shared-directory path to this build.zig") orelse return error.MissingParallelsShareRoot;
 
             const run_bundler = b.addSystemCommand(&.{
                 "prlctl", "exec", parallels_vmid, "-r", "--current-user", 
                 "powershell", "-NonInteractive", "-NoProfile", "-File", b.fmt("{s}\\win\\Deploy.ps1", .{parallels_share_root}), parallels_share_root
             });
-
+            run_bundler.expected_exit_code = null;
             run_bundler.step.dependOn(b.getInstallStep());
 
             std.log.info("Parallels({s}, {s})", .{parallels_vmid, parallels_share_root});

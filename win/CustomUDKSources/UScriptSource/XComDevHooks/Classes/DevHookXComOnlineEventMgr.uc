@@ -17,7 +17,7 @@ function bool _IsPresentationLayerReady()
 event Tick(float DeltaTime) {
 `if(`isdefined(Flavour_XCom_EW))
     local bool Result;
-    Result = class'UScriptDLLInjector.Api'.static.InjectDLL("C:\\Modding\\zig-out\\lib\\testdll_payload.dll");
+    Result = class'UScriptDLLInjector.Api'.static.InjectDLL(class'UScriptDLLInjector.Api'.static.GetInjectedDllPath());
     `log("InjectDLL(...) =: " $ Result);
     HasInjected = true;
 `endif
@@ -25,7 +25,7 @@ event Tick(float DeltaTime) {
 `if(`isdefined(Flavour_XCom2_WotC))
     local bool Result;
     if(_IsPresentationLayerReady() && !HasInjected) {
-        Result = class'UScriptDLLInjector.Api'.static.InjectDLL("C:\\Modding\\zig-out\\lib\\testdll_payload.dll");
+        Result = class'UScriptDLLInjector.Api'.static.InjectDLL(class'UScriptDLLInjector.Api'.static.GetInjectedDllPath());
         `log("InjectDLL(...) =: " $ Result);
         HasInjected = true;
     }
