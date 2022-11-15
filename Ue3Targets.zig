@@ -214,8 +214,8 @@ pub const Flavour = enum {
                         "XComDevHooks",
                     },
                     .custom_ini = .{
-                        .src_ini = "win\\CustomUDKSources\\UDK_Sources\\UDKInstall-2011-09\\DefaultEngine_Original.ini", 
-                        .dst_ini = paths.sdk_engine_dir ++ "Config\\DefaultEngine.ini", 
+                        .src_ini = "win\\CustomUDKSources\\UDK_Sources\\UDKInstall-XComEW-2011-09\\DefaultEngine_Original.ini", 
+                        .dst_ini = paths.sdk_engine_dir ++ "\\Config\\DefaultEngine.ini", 
                         .items = &.{
                             .{.name = "[UnrealEd.EditorEngine]", .operations = .{
                                 .append = &.{
@@ -241,7 +241,7 @@ pub const Flavour = enum {
                     },
                     .custom_ini = .{
                         .src_ini = "win\\CustomUDKSources\\UDK_Sources\\XCom2-WOTC-SDK\\XComEngine_Original.ini", 
-                        .dst_ini = paths.sdk_engine_dir ++ "Config\\XComEngine.ini", 
+                        .dst_ini = paths.sdk_engine_dir ++ "\\Config\\XComEngine.ini", 
                         .items = &.{
                             .{.name = "[UnrealEd.EditorEngine]", .operations = .{
                                 .append = &.{
@@ -311,7 +311,7 @@ pub const Flavour = enum {
                 .XCom_EW => RunContext{
                     .exe = paths.game_exe,
                     .arguments = "-FROMLAUNCHER",
-                    .src_scriptdir = "win\\CustomUDKSources\\UDK_Sources\\UScriptSource\\Output", 
+                    .src_scriptdir = "win\\CustomUDKSources\\UScriptSource\\Output", 
                     .dst_scriptdir = paths.game_engine_dir ++ "\\CookedPCConsole", 
                     .custom_ini = .{
                         .src_ini = "win\\CustomUDKSources\\UDK_Sources\\UDKInstall-XComEW-2011-09\\XComEW_DefaultEngine_Original.ini", 
@@ -322,10 +322,12 @@ pub const Flavour = enum {
                                     "+NonNativePackages=UScriptDllInjector",
                                     "+NonNativePackages=XComDevHooks"
                                 },
+                            }},
+                            .{.name = "[Engine.Engine]", .operations = .{
                                 .override = &.{
                                     CustomINI.Override{ .original_entry = "GameEngine=XComGame.XComEngine", .new_entry = "GameEngine=XComDevHooks.DevHookXComEngine" },
                                 }, 
-                            }}
+                            }},
                         }
                     },
                     .inject_dll = "zig-out\\lib\\medic.dll",
@@ -344,10 +346,12 @@ pub const Flavour = enum {
                                     "+NonNativePackages=UScriptDllInjector",
                                     "+NonNativePackages=XComDevHooks"
                                 },   
+                            }},
+                            .{.name = "[Engine.Engine]", .operations = .{
                                 .override = &.{
                                     CustomINI.Override{ .original_entry = "GameEngine=XComGame.XComEngine", .new_entry = "GameEngine=XComDevHooks.DevHookXComEngine" },
-                                },
-                            }}
+                                }, 
+                            }},
                         }
                     },
                     .inject_dll = "zig-out\\lib\\medic.dll",

@@ -31,7 +31,7 @@ pub fn forFlavour(comptime flav: Flavour) Self {
 			.sdk_exe = "C:\\Modding\\UDKInstall\\Binaries\\Win64\\UDK.exe",
 		},
 		.XCom_EW => .{
-			.game_engine_dir = "C:\\Modding\\XCOM Enemy Unknown\\XEW\\",
+			.game_engine_dir = "C:\\Modding\\XCOM Enemy Unknown\\XEW\\XComGame",
 			.game_exe = "C:\\Modding\\XCOM Enemy Unknown\\XEW\\Binaries\\Win32\\XComEW.exe",
 
 			.sdk_root_dir = "C:\\Modding\\UDKInstall",

