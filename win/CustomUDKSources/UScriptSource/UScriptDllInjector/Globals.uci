@@ -1,0 +1,7 @@
+
+`include (Settings.uci)
+
+`define onlyTestDLLInjection
+
+`define UTIL class'DataStructures'.static
+`define PAYLOAD class'RawPayloads'.default
