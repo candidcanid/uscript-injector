@@ -73,7 +73,7 @@ pub fn main() anyerror!void {
         "win\\CustomUDKSources\\UScriptSource\\SimpleCustomGame\\Settings.uci",        
     }) |path| {
         try std.fs.cwd().writeFile(path, try fmt.allocPrint(allocator, 
-    \\// i386 = 32bit, x86_64 = 64bit
+    \\// x86 = 32bit, x86_64 = 64bit
     \\`define Arch_{s}
     \\// see RawPayloads.uc for valid flavours
     \\`define Flavour_{s}

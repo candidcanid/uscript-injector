@@ -116,8 +116,8 @@ pub fn build(b: *std.build.Builder) !void {
             b.default_step = &run_bundler.step;        
         },
         .macos => {
-            const parallels_vmid = b.option([]const u8, "parallels_vmid", "Parallels VM name for connection") orelse return error.MissingParallelsVMIdent;
-            const parallels_share_root = b.option([]const u8, "parallels_shareroot", "full shared-directory path to this build.zig") orelse return error.MissingParallelsShareRoot;
+            const parallels_vmid = b.option([]const u8, "parallels_vmid", "Parallels VM name for connection") orelse "";
+            const parallels_share_root = b.option([]const u8, "parallels_shareroot", "full shared-directory path to this build.zig") orelse "";
 
             const run_bundler = b.addSystemCommand(&.{
                 "prlctl", "exec", parallels_vmid, "-r", "--current-user", 
