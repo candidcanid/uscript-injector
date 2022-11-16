@@ -6,7 +6,7 @@ The rest of this project is build tooling and scripts to ease development of the
 
 # Tooling usage: 
 
-The general use build tools + debugging framework requires (Zig)[https://ziglang.org/]. Specifically 'zig-master', which can be found (here)[https://ziglang.org/download/]. 
+The general use build tools + debugging framework requires [Zig](https://ziglang.org/). Specifically 'zig-master', which can be found [here](https://ziglang.org/download/). 
 
 To use these tools - you will likely need to open `Ue3Paths.zig` and alter the default paths used in `forFlavour`. Everything else should (probably) work fine after that.
 
